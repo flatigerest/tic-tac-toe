@@ -7,6 +7,7 @@ from time import sleep
 import json
 from requests import get as requestsget
 from random import randint
+import ipaddress
 
 
 def play_game(conn, player):
@@ -121,23 +122,37 @@ def check_winner(board):
 
 def join_game():
     clear_screen()
-    host = type_input("Enter the host IP address: ")
-    port = 12345
 
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.connect((host, port))
-        type_text("Connected to host!")
+    while True:
+        while True:
+            host = type_input("Enter the host IP address: ")
+            if is_valid_ip(host):
+                break
+            type_text("Invalid IP address!")
 
-        players = ['X', 'O']
-        type_text("The host is choosing their character.")
-        player = s.recv(1024).decode()
-        if player == players[0]:
-            opponent = players[1]
-        else:
-            opponent = players[0]
-        type_input(f"You are player {player}. Press enter to continue...")
+        port = 12345
+        type_text("Connecting...")
 
-        play_game(conn=s, player=player)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(5)
+            try:
+                s.connect((host, port))
+            except TimeoutError:
+                type_text("Timeout: couldn't connect to host.")
+                continue
+            type_text("Connected to host!")
+
+            players = ['X', 'O']
+            type_text("The host is choosing their character.")
+            player = s.recv(1024).decode()
+            if player == players[0]:
+                opponent = players[1]
+            else:
+                opponent = players[0]
+            type_input(f"You are player {player}. Press enter to continue...")
+
+            play_game(conn=s, player=player)
+            break
 
 
 def host_game():
@@ -193,6 +208,14 @@ def clear_screen():
 def intro():
     clear_screen()
     type_text("Welcome to terminal tic-tac-toe!")
+
+
+def is_valid_ip(ip):
+    try:
+        ipaddress.ip_address(ip)
+        return True
+    except ValueError:
+        return False
 
 
 def main():
