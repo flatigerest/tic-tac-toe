@@ -66,6 +66,22 @@ class Button:
         return x in self.area["x"] and y in self.area["y"]
 
 
+def host_game():
+    pass  # TODO
+
+
+def join_game():
+    pass  # TODO
+
+
+def local_game():
+    pass  # TODO
+
+
+def cpu_game():
+    pass  # TODO
+
+
 def intro():
     STDSCR.clear()
     lines = ["┌┬┐┬┌─┐  ┌┬┐┌─┐┌─┐  ┌┬┐┌─┐┌─┐", " │ ││     │ ├─┤│     │ │ │├┤ ", " ┴ ┴└─┘   ┴ ┴ ┴└─┘   ┴ └─┘└─┘"]
@@ -133,15 +149,22 @@ def main(stdscr):
         intro()
         STDSCR.refresh()
 
-        choose_game_mode()
+        game_mode = choose_game_mode()
+
+        if game_mode == "host":
+            host_game()
+        elif game_mode == "join":
+            join_game()
+        elif game_mode == "local":
+            local_game()
+        else:
+            cpu_game()
 
     except KeyboardInterrupt:
-        STDSCR.clear()
+        pass
 
     finally:
-        STDSCR.clear()
-        #type_text(STDSCR, "\nClosing game...\n")
-        STDSCR.refresh()
+        end_game()
 
 
 if __name__ == "__main__":
