@@ -66,6 +66,65 @@ class Button:
         return x in self.area["x"] and y in self.area["y"]
 
 
+class Board:
+    _width = 23
+    _height = 11
+    _board = [[' ']*3 for _ in range(3)]
+    _cross = chr(0x256c)
+    _horizontal = chr(0x2550)
+    _vertical = chr(0x2551)
+    _h_line = (_horizontal * 7 + _cross) * 2 + _horizontal * 7
+    _blank_line = (" " * 7 + _vertical) * 2
+
+    def __init__(self, x=None, y=None) -> None:
+        self.x = (MAX_X - self._width) // 2 if x is None else x
+        self.y = (MAX_Y - self._height) // 2 if y is None else y
+        self._lines = [
+            self._blank_line,
+            self._generate_line(self._board[0]),
+            self._blank_line,
+            self._h_line,
+            self._blank_line,
+            self._generate_line(self._board[1]),
+            self._blank_line,
+            self._h_line,
+            self._blank_line,
+            self._generate_line(self._board[2]),
+            self._blank_line
+        ]
+
+    def _generate_line(self, row: list) -> str:
+        return "   " + row[0] + "   " + self._vertical + "   " + row[1] + "   " + self._vertical + "   " + row[2]
+
+    def update_board(self, player, row, col) -> None:
+        self._board[row][col] = player
+        self._lines[4 * row + 1] = self._generate_line(self._board[row])
+
+    def draw(self) -> None:
+        for i, line in enumerate(self._lines):
+            STDSCR.addstr(self.y + i, self.x, line)
+        STDSCR.refresh()
+
+    def check_winner(self) -> str | None:
+        # Check rows
+        for row in self._board:
+            if len(set(row)) == 1 and row[0] != ' ':
+                return row[0]
+
+        # Check columns
+        for col in range(3):
+            if len(set([self._board[row][col] for row in range(3)])) == 1 and self._board[0][col] != ' ':
+                return self._board[0][col]
+
+        # Check diagonals
+        if self._board[0][0] == self._board[1][1] == self._board[2][2] != ' ':
+            return self._board[0][0]
+        if self._board[0][2] == self._board[1][1] == self._board[2][0] != ' ':
+            return self._board[0][2]
+
+        return None
+
+
 def host_game():
     pass  # TODO
 
@@ -75,14 +134,19 @@ def join_game():
 
 
 def local_game():
-    pass  # TODO
+
+    setup_game()
 
 
 def cpu_game():
     pass  # TODO
 
 
-def intro():
+def setup_game():
+    board = Board()
+
+
+def banner():
     STDSCR.clear()
     lines = ["┌┬┐┬┌─┐  ┌┬┐┌─┐┌─┐  ┌┬┐┌─┐┌─┐", " │ ││     │ ├─┤│     │ │ │├┤ ", " ┴ ┴└─┘   ┴ ┴ ┴└─┘   ┴ └─┘└─┘"]
     for i in range(len(lines)):
@@ -146,7 +210,7 @@ def main(stdscr):
     curses.curs_set(0)  # Hide cursor
 
     try:
-        intro()
+        banner()
         STDSCR.refresh()
 
         game_mode = choose_game_mode()
