@@ -78,6 +78,7 @@ class Button:
             time.sleep(self._sleep_time)
 
     def in_bounds(self, x, y) -> bool:
+        """Return True if the coordinates are within the button, else return False."""
         return x in self.area["x"] and y in self.area["y"]
 
 
@@ -168,6 +169,10 @@ class Board:
             return self._board[0][0]
         if self._board[0][2] == self._board[1][1] == self._board[2][0] != ' ':
             return self._board[0][2]
+        
+        # Check for tie
+        if all(self._board[i][j] != ' ' for i in range(3) for j in range(3)):
+            return "tie"
 
         return None
 
@@ -185,8 +190,13 @@ def center(num) -> int:
 def player_turn(player, board: Board) -> None:
     prev_click = [None, None]
     while True:
+        str = "It's Player {}'s turn.".format(player)
+        STDSCR.addstr(Board.get_board_height() + board.y + 2, center(len(str)), str)
+        STDSCR.refresh()
+
         event = STDSCR.getch()
         mx, my = get_mouse_xy()
+
 
         if event == ord('q'):
             end_game()
@@ -220,10 +230,13 @@ class Banner:
     height = len(lines)
 
     def draw() -> None:
-        STDSCR.clear()
         for i, line in enumerate(Banner.lines):
             STDSCR.addstr(i, center(Banner.width), line)
         STDSCR.refresh()
+
+
+def clear_y(y) -> None:
+    STDSCR.addstr(y, 0, " " * (MAX_X - 1))
 
 
 def host_game():
@@ -237,7 +250,14 @@ def join_game():
 def local_game():
 
     def display_winner(player, y) -> None:
-        str = "Player {} wins!".format(player)
+        clear_y(y)
+        str = "Player {} wins! Click anywhere to continue...".format(player)
+        STDSCR.addstr(y, center(len(str)), str)
+        STDSCR.getch()
+
+    def display_tie(y) -> None:
+        clear_y(y)
+        str = "It's a tie! Click anywhere to continue..."
         STDSCR.addstr(y, center(len(str)), str)
         STDSCR.getch()
 
@@ -250,13 +270,16 @@ def local_game():
     Banner.draw()
     board.draw_board()
     while True:
-        board.draw_values()
         player_turn(players[turn], board)
-
+        board.draw_values()
         winner = board.get_winner()
-        if winner:
-            board.draw_values()
-            display_winner(players[turn], Board.get_board_height() + board.y + 2)
+
+        if winner and winner != "tie":
+            display_winner(winner, Board.get_board_height() + board.y + 2)
+            Board.clear_board()
+            break
+        elif winner and winner == "tie":
+            display_tie(Board.get_board_height() + board.y + 2)
             Board.clear_board()
             break
 
