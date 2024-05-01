@@ -325,8 +325,10 @@ def player_turn(player, board: Board) -> None:
     """
     prev_click = [None, None]
     while True:
+        y = Board.get_board_height() + board.y + 2
+        clear_y(y)
         str = "It's Player {}'s turn.".format(player)
-        STDSCR.addstr(Board.get_board_height() + board.y + 2, center(len(str)), str)
+        STDSCR.addstr(y, center(len(str)), str)
         STDSCR.refresh()
 
         event = STDSCR.getch()
@@ -386,8 +388,107 @@ def clear_y(y) -> None:
     STDSCR.addstr(y, 0, " " * (MAX_X - 1))
 
 
-def host_game():
-    pass  # TODO
+def footer() -> None:
+    """
+    Display the footer at the bottom of the screen.
+
+    The footer includes information about the developer and instructions to quit the game by pressing 'q'.
+
+    Raises:
+        KeyboardInterrupt: If the user quits the game by pressing 'q'.
+    """
+    STDSCR.addstr(MAX_Y - 1, 0, chr(0x00a9) + " flatiger 2024  |  Press 'q' at any time to quit")
+    STDSCR.refresh()
+
+
+def get_public_ip():
+    """
+    Retrieve the public IP address of the current device.
+
+    This function sends a request to 'https://httpbin.org/ip' to get the public IP address.
+    If the request is successful (status code 200), it parses the JSON response to extract
+    the public IP address. If the request fails or encounters an error, it prints an error
+    message and returns None.
+
+    Returns:
+        str | None: The public IP address of the device if retrieved successfully, else None.
+
+    Raises:
+        None
+    """
+    try:
+        response = requestsget('https://httpbin.org/ip')
+        if response.status_code == 200:
+            ip_info = response.json()
+            return ip_info['origin']
+        else:
+            print(f"Failed to retrieve public IP. Status code: {response.status_code}")
+            return None
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
+
+
+def get_input(x: int, y: int) -> str:
+    curses.curs_set(1)
+    user_input = ""
+
+    while True:
+        char = STDSCR.getch()
+
+        if char == 10:
+            break
+
+        # Append to input
+        user_input += chr(char)
+
+        STDSCR.move(y, x)
+        STDSCR.clrtoeol()
+        STDSCR.addstr(y, x, user_input)
+
+    curses.curs_set(0)
+    return user_input
+
+
+def host_game(port: int=12345):
+    def display_ip():
+        STDSCR.clear()
+        Banner.draw()
+        str = f"Your IP is: {get_public_ip()}."
+        STDSCR.addstr(Banner.height + 2, center(len(str)), str)
+        str = f"Listening on port {port}."
+        STDSCR.addstr(Banner.height + 2, center(len(str)), str)
+        STDSCR.refresh()
+
+    def display_connection(conn: str):
+        STDSCR.clear()
+        Banner.draw()
+        str = f"Connected to {conn}."
+        STDSCR.addstr(Banner.height + 2, center(len(str)), str)
+        STDSCR.refresh()
+        time.sleep(0.5)
+
+    def choose_character() -> str:
+        STDSCR.clear()
+        Banner.draw()
+        str = f"Choose your character:"
+        STDSCR.addstr(Banner.height + 2, center(len(str)), str)
+        
+
+    host = "0.0.0.0"
+    players = ['X', 'O']
+    turn = 0
+    board = Board(y=Banner.height + 2)
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind((host, port))
+        s.listen()
+        display_ip()
+        conn, addr = s.accept()
+        with conn:
+            display_connection(conn)
+
+
 
 
 def join_game():
@@ -460,21 +561,106 @@ def local_game():
         turn = (turn + 1) % 2
 
 
-def footer() -> None:
+def cpu_game():
     """
-    Display the footer at the bottom of the screen.
+    Conducts a game of Tic Tac Toe against the computer.
 
-    The footer includes information about the developer and instructions to quit the game by pressing 'q'.
+    This function initializes the game, draws the game board, and handles player and computer turns until
+    there is a winner or a tie.
 
     Raises:
-        KeyboardInterrupt: If the user quits the game by pressing any key.
+        KeyboardInterrupt: If the user quits the game by pressing 'q'.
     """
-    STDSCR.addstr(MAX_Y - 1, 0, chr(0x00a9) + " flatiger 2024  |  Press 'q' at any time to quit")
-    STDSCR.refresh()
+    def display_winner(player, y) -> None:
+        """
+        Display a message indicating the winner of the game.
 
+        Args:
+            player (str): The symbol representing the winning player or 'CPU'.
+            y (int): The y-coordinate of the message on the screen.
 
-def cpu_game():
-    pass  # TODO
+        Raises:
+            KeyboardInterrupt: If the user quits the game by pressing any key.
+        """
+        clear_y(y)
+        if player == "CPU":
+            str = "CPU wins! Click anywhere to continue..."
+        else:
+            str = "Player {} wins! Click anywhere to continue...".format(player)
+        STDSCR.addstr(y, center(len(str)), str)
+        STDSCR.getch()
+
+    def display_tie(y) -> None:
+        """
+        Display a message indicating that the game ended in a tie.
+
+        Args:
+            y (int): The y-coordinate of the message on the screen.
+
+        Raises:
+            KeyboardInterrupt: If the user quits the game by pressing any key.
+        """
+        clear_y(y)
+        str = "It's a tie! Click anywhere to continue..."
+        STDSCR.addstr(y, center(len(str)), str)
+        STDSCR.getch()
+
+    def computer_turn(board: Board, player: str, opponent: str) -> None:
+        """
+        Simulate the computer's turn in the game.
+
+        Args:
+            board (Board): The game board.
+            player (str): The symbol representing the computer player.
+            opponent (str): The symbol representing the human player.
+        """
+        y = Board.get_board_height() + board.y + 2
+        clear_y(y)
+        str = "CPU's turn."
+        STDSCR.addstr(y, center(len(str)), str)
+        STDSCR.refresh()
+
+        # Simple strategy: Choose a random empty cell
+        empty_cells = [(row, col) for row in range(3) for col in range(3) if board.is_empty(row, col)]
+        if empty_cells:
+            row, col = empty_cells[randint(0, len(empty_cells) - 1)]
+            board.update_board(player, row, col)
+        time.sleep(0.5)
+
+    player_symbol = 'X'
+    cpu_symbol = 'O'
+    turn = 0
+    board = Board(y=Banner.height + 2)
+
+    STDSCR.clear()
+    footer()
+    Banner.draw()
+    board.draw_board()
+
+    # Determine who goes first
+    first_turn = randint(0, 1)
+    if first_turn == 1:
+        turn += 1
+
+    while True:
+        if turn % 2 == 0:
+            player_turn(player_symbol, board)
+        else:
+            computer_turn(board, cpu_symbol, player_symbol)
+
+        board.draw_values()
+        winner = board.get_winner()
+
+        if winner and winner != "tie":
+            display_winner(winner, Board.get_board_height() + board.y + 2)
+            Board.clear_board()
+            break
+        elif winner and winner == "tie":
+            display_tie(Board.get_board_height() + board.y + 2)
+            Board.clear_board()
+            break
+
+        turn += 1
 
 
 def play_again() -> bool:
@@ -614,12 +800,12 @@ def main(stdscr):
     curses.mousemask(curses.REPORT_MOUSE_POSITION)  # Enable mouse events
     curses.curs_set(0)  # Hide cursor
 
+    Banner.draw()
+    footer()
+    STDSCR.refresh()
+
     try:
         while True:
-            Banner.draw()
-            footer()
-            STDSCR.refresh()
-
             game_mode = choose_game_mode()
 
             if game_mode == "host":
@@ -632,7 +818,10 @@ def main(stdscr):
                 cpu_game()
 
             if not play_again():
+                end_game()
                 break
+            else:
+                STDSCR.clear()
 
     except KeyboardInterrupt:
         end_game()
