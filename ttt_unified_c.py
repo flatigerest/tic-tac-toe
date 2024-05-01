@@ -31,6 +31,15 @@ class Button:
     _sleep_time = 0.1
 
     def __init__(self, parameter, label, x, y):
+        """
+        Initialize a Button object.
+
+        Args:
+            parameter (str): The parameter associated with the button.
+            label (str): The label displayed on the button.
+            x (int): The x-coordinate of the top-left corner of the button.
+            y (int): The y-coordinate of the top-left corner of the button.
+        """
         self.parameter = parameter
         self.label = label
         self.x = x
@@ -41,9 +50,18 @@ class Button:
         }
 
     def __str__(self) -> str:
+        """
+        Return the parameter associated with the button as a string.
+        """
         return self.parameter
 
     def draw(self, hl=False):
+        """
+        Draw the button on the screen.
+
+        Args:
+            hl (bool, optional): If True, highlight the button. Defaults to False.
+        """
         # Define characters
         h = chr(0x2501)
         v = chr(0x2502)
@@ -69,6 +87,9 @@ class Button:
         STDSCR.refresh()
 
     def click(self):
+        """
+        Simulate a button click by highlighting and unhighlighting the button.
+        """
         for _ in range(2):
             self.draw(True)
             STDSCR.refresh()
@@ -78,7 +99,16 @@ class Button:
             time.sleep(self._sleep_time)
 
     def in_bounds(self, x, y) -> bool:
-        """Return True if the coordinates are within the button, else return False."""
+        """
+        Check if the given coordinates are within the boundaries of the button.
+
+        Args:
+            x (int): The x-coordinate to check.
+            y (int): The y-coordinate to check.
+
+        Returns:
+            bool: True if the coordinates are within the button, False otherwise.
+        """
         return x in self.area["x"] and y in self.area["y"]
 
 
@@ -90,11 +120,24 @@ class Board:
     _board = [[' ']*3 for _ in range(3)]
 
     def __init__(self, x=None, y=None) -> None:
+        """
+        Initialize a Board object.
+
+        Args:
+            x (int, optional): The x-coordinate of the top-left corner of the board. Defaults to None.
+            y (int, optional): The y-coordinate of the top-left corner of the board. Defaults to None.
+        """
         self.x = center(self._board_width) if x is None else x
         self.y = center(self._board_height) if y is None else y
         self._lines = self._generate_board()
 
     def _generate_board(self) -> list:
+        """
+        Generate the ASCII representation of the game board.
+
+        Returns:
+            list: The lines representing the game board.
+        """
         cross = chr(0x256c)
         horizontal = chr(0x2550)
         vertical = chr(0x2551)
@@ -103,12 +146,36 @@ class Board:
         return [blank_line] * 3 + [h_line] + [blank_line] * 3 + [h_line] + [blank_line] * 3
 
     def clear_board() -> None:
+        """
+        Clear the game board by resetting all cells to empty.
+        """
         Board._board = [[' ']*3 for _ in range(3)]
 
     def is_empty(self, row, col) -> bool:
+        """
+        Check if a cell on the board is empty.
+
+        Args:
+            row (int): The row index of the cell.
+            col (int): The column index of the cell.
+
+        Returns:
+            bool: True if the cell is empty, False otherwise.
+        """
         return self._board[row][col] == " "
 
     def highlight_cell(self, row, col, undo=False) -> bool:
+        """
+        Highlight or unhighlight a cell on the board.
+
+        Args:
+            row (int): The row index of the cell.
+            col (int): The column index of the cell.
+            undo (bool, optional): If True, undo the highlighting. Defaults to False.
+
+        Returns:
+            bool: True if the cell is empty, False otherwise.
+        """
         if self.is_empty(row, col):
             y_offset = self.y + row * 4
             x_offset = self.x + col * 8
@@ -120,6 +187,16 @@ class Board:
             STDSCR.refresh()
 
     def in_bounds(self, mx, my) -> bool:
+        """
+        Check if the given coordinates are within the boundaries of the board.
+
+        Args:
+            mx (int): The x-coordinate to check.
+            my (int): The y-coordinate to check.
+
+        Returns:
+            bool: True if the coordinates are within the board, False otherwise.
+        """
         mx -= self.x
         my -= self.y
         if (mx < 0) or \
@@ -133,6 +210,16 @@ class Board:
             return True
 
     def get_cell(self, mx, my) -> tuple:
+        """
+        Get the row and column indices of the cell corresponding to the given coordinates.
+
+        Args:
+            mx (int): The x-coordinate to check.
+            my (int): The y-coordinate to check.
+
+        Returns:
+            tuple: A tuple containing the row and column indices of the cell.
+        """
         mx -= self.x
         my -= self.y
         row = my // self._cell_height
@@ -140,20 +227,40 @@ class Board:
         return row, col
 
     def update_board(self, player, row, col) -> None:
+        """
+        Update the value of a cell on the board with the specified player symbol.
+
+        Args:
+            player (str): The symbol representing the player.
+            row (int): The row index of the cell.
+            col (int): The column index of the cell.
+        """
         self._board[row][col] = player
 
     def draw_board(self) -> None:
+        """
+        Draw the game board on the screen.
+        """
         for i, line in enumerate(self._lines):
             STDSCR.addstr(self.y + i, self.x, line)
         STDSCR.refresh()
 
     def draw_values(self) -> None:
+        """
+        Draw the current values of the cells on the game board.
+        """
         for i, row in enumerate(self._board):
             for j, val in enumerate(row):
                 STDSCR.addstr(self.y + 1 + self._cell_height * i, self.x + 3 + self._cell_width * j, val)
         STDSCR.refresh()
 
     def get_winner(self) -> str | None:
+        """
+        Check if there is a winner on the game board.
+
+        Returns:
+            str | None: The symbol of the winning player or 'tie' if there's a tie, or None if no winner.
+        """
         # Check rows
         for row in self._board:
             if len(set(row)) == 1 and row[0] != ' ':
@@ -169,7 +276,7 @@ class Board:
             return self._board[0][0]
         if self._board[0][2] == self._board[1][1] == self._board[2][0] != ' ':
             return self._board[0][2]
-        
+
         # Check for tie
         if all(self._board[i][j] != ' ' for i in range(3) for j in range(3)):
             return "tie"
@@ -177,17 +284,45 @@ class Board:
         return None
 
     def get_board_width() -> int:
+        """
+        Get the width of the game board.
+
+        Returns:
+            int: The width of the game board.
+        """
         return Board._board_width
 
     def get_board_height() -> int:
+        """
+        Get the height of the game board.
+
+        Returns:
+            int: The height of the game board.
+        """
         return Board._board_height
 
 
 def center(num) -> int:
+    """
+    Calculate the center position of a screen given a width.
+
+    Args:
+        num (int): The width to center.
+
+    Returns:
+        int: The x-coordinate of the center position.
+    """
     return (MAX_X - num) // 2
 
 
 def player_turn(player, board: Board) -> None:
+    """
+    Allow the specified player to take their turn on the game board.
+
+    Args:
+        player (str): The symbol representing the current player.
+        board (Board): The game board on which the player is taking their turn.
+    """
     prev_click = [None, None]
     while True:
         str = "It's Player {}'s turn.".format(player)
@@ -220,6 +355,9 @@ def player_turn(player, board: Board) -> None:
 
 
 class Banner:
+    """
+    A class representing a banner to be displayed on the screen.
+    """
     lines = ["╔─────────────────────────────╗",
              "│┌┬┐┬┌─┐  ┌┬┐┌─┐┌─┐  ┌┬┐┌─┐┌─┐│",
              "│ │ ││     │ ├─┤│     │ │ │├┤ │",
@@ -230,12 +368,21 @@ class Banner:
     height = len(lines)
 
     def draw() -> None:
+        """
+        Draw the banner on the screen.
+        """
         for i, line in enumerate(Banner.lines):
             STDSCR.addstr(i, center(Banner.width), line)
         STDSCR.refresh()
 
 
 def clear_y(y) -> None:
+    """
+    Clear a line on the screen.
+
+    Args:
+        y (int): The y-coordinate of the line to clear.
+    """
     STDSCR.addstr(y, 0, " " * (MAX_X - 1))
 
 
@@ -248,14 +395,41 @@ def join_game():
 
 
 def local_game():
+    """
+    Conducts a local game of Tic Tac Toe between two players.
 
+    This function initializes the game, draws the game board, and handles player turns until there is a winner
+    or a tie.
+
+    Raises:
+        KeyboardInterrupt: If the user quits the game by pressing 'q'.
+    """
     def display_winner(player, y) -> None:
+        """
+        Display a message indicating the winner of the game.
+
+        Args:
+            player (str): The symbol representing the winning player.
+            y (int): The y-coordinate of the message on the screen.
+
+        Raises:
+            KeyboardInterrupt: If the user quits the game by pressing any key.
+        """
         clear_y(y)
         str = "Player {} wins! Click anywhere to continue...".format(player)
         STDSCR.addstr(y, center(len(str)), str)
         STDSCR.getch()
 
     def display_tie(y) -> None:
+        """
+        Display a message indicating that the game ended in a tie.
+
+        Args:
+            y (int): The y-coordinate of the message on the screen.
+
+        Raises:
+            KeyboardInterrupt: If the user quits the game by pressing any key.
+        """
         clear_y(y)
         str = "It's a tie! Click anywhere to continue..."
         STDSCR.addstr(y, center(len(str)), str)
@@ -287,6 +461,14 @@ def local_game():
 
 
 def footer() -> None:
+    """
+    Display the footer at the bottom of the screen.
+
+    The footer includes information about the developer and instructions to quit the game by pressing 'q'.
+
+    Raises:
+        KeyboardInterrupt: If the user quits the game by pressing any key.
+    """
     STDSCR.addstr(MAX_Y - 1, 0, chr(0x00a9) + " flatiger 2024  |  Press 'q' at any time to quit")
     STDSCR.refresh()
 
@@ -296,6 +478,15 @@ def cpu_game():
 
 
 def play_again() -> bool:
+    """
+    Display a prompt asking the player if they want to play again.
+
+    Returns:
+        bool: True if the player chooses to play again, False otherwise.
+
+    Raises:
+        KeyboardInterrupt: If the user quits the game by pressing 'q'.
+    """
     STDSCR.clear()
     footer()
     lines = ["╔──────────────────────────────╗",
@@ -333,6 +524,15 @@ def play_again() -> bool:
 
 
 def choose_game_mode() -> str:
+    """
+    Display the game mode selection screen and wait for the player to choose a mode.
+
+    Returns:
+        str: The chosen game mode as a string.
+
+    Raises:
+        KeyboardInterrupt: If the user quits the game by pressing 'q'.
+    """
     buttons = []
 
     host_str = "Host "
@@ -371,16 +571,40 @@ def choose_game_mode() -> str:
 
 
 def end_game():
+    """
+    End the game and print a farewell message.
+
+    Raises:
+        SystemExit: Indicates a successful termination of the program.
+    """
     print("\nThanks for playing Tic Tac Toe!\n")
     sys.exit(0)
 
 
 def get_mouse_xy():
+    """
+    Get the x and y coordinates of the mouse cursor.
+
+    Returns:
+        tuple[int, int]: The x and y coordinates of the mouse cursor.
+
+    Raises:
+        KeyboardInterrupt: If the user quits the game by pressing 'q'.
+    """
     _, mx, my, _, _ = curses.getmouse()
     return mx, my
 
 
 def main(stdscr):
+    """
+    The main function responsible for running the Tic Tac Toe game.
+
+    Args:
+        stdscr: The standard screen object provided by the curses library.
+
+    Raises:
+        KeyboardInterrupt: If the user quits the game by pressing 'q'.
+    """
     global MAX_Y, MAX_X  # Height and width get global visibility
     global STDSCR
     MAX_Y, MAX_X = stdscr.getmaxyx()
