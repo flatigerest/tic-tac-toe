@@ -1,6 +1,6 @@
-from typing import List
-import curses
-import utils
+from typing import List, Union
+from curses import window, A_REVERSE
+from src.utils import center
 
 
 class Board:
@@ -10,7 +10,7 @@ class Board:
     _cell_height: int = 4
     _board: List[List[str]] = [[' ']*3 for _ in range(3)]
 
-    def __init__(self, stdscr: curses.window, x: int=None, y: int=None) -> None:
+    def __init__(self, stdscr: window, x: int=None, y: int=None) -> None:
         """
         Initialize a Board object.
 
@@ -18,10 +18,10 @@ class Board:
             x (int, optional): The x-coordinate of the top-left corner of the board. Defaults to None.
             y (int, optional): The y-coordinate of the top-left corner of the board. Defaults to None.
         """
-        self.stdscr: curses.window = stdscr
+        self.stdscr: window = stdscr
         # Set the coordinates of the top-left corner of the board
-        self.x: int = utils.center(self._board_width) if x is None else x
-        self.y: int = utils.center(self._board_height) if y is None else y
+        self.x: int = center(stdscr, self._board_width) if x is None else x
+        self.y: int = center(stdscr, self._board_height) if y is None else y
         # Generate the initial representation of the board
         self._lines: List[str] = self._generate_board()
 
@@ -74,7 +74,7 @@ class Board:
                 if undo:
                     self.stdscr.addstr(y_offset + i, x_offset, "       ")
                 else:
-                    self.stdscr.addstr(y_offset + i, x_offset, "       ", curses.A_REVERSE)
+                    self.stdscr.addstr(y_offset + i, x_offset, "       ", A_REVERSE)
             self.stdscr.refresh()
 
     def in_bounds(self, x: int, y: int) -> bool:
@@ -117,7 +117,7 @@ class Board:
         col: int = x // self._cell_width
         return row, col
 
-    def update_board(self, player: str | chr, row: int, col: int) -> None:
+    def update_board(self, player: Union[str, chr], row: int, col: int) -> None:
         """
         Update the value of a cell on the board with the specified player symbol.
 

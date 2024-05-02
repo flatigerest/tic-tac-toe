@@ -1,8 +1,8 @@
 import curses
 import requests
-import ipaddress
+from ipaddress import ip_address
 
-def center(num: int | float) -> int:
+def center(stdscr: curses.window, num: int | float) -> int:
     """
     Calculate the center position of a screen given a width.
 
@@ -12,7 +12,7 @@ def center(num: int | float) -> int:
     Returns:
         int: The x-coordinate of the center position.
     """
-    _, max_x = curses.getmaxyx()
+    _, max_x = stdscr.getmaxyx()
     return (max_x - num) // 2
 
 
@@ -23,7 +23,7 @@ def clear_y(stdscr: curses.window, y: int) -> None:
     Args:
         y (int): The y-coordinate of the line to clear.
     """
-    _, max_x = curses.getmaxyx()
+    _, max_x = stdscr.getmaxyx()
     stdscr.addstr(y, 0, " " * (max_x - 1))
 
 
@@ -66,7 +66,7 @@ def is_valid_ip(ip: str) -> bool:
         bool: True if the string is a valid IP address, False otherwise.
     """
     try:
-        ipaddress.ip_address(ip)
+        ip_address(ip)
         return True
     except ValueError:
         return False

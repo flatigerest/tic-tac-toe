@@ -1,14 +1,14 @@
 import curses
-import time
-from typing import List
+from time import sleep
+from typing import List, Union
 import socket
-import json
-import random
+from json import loads, dumps
+from random import choice, randint
 import sys
 
-from board import Board
-from button import Button
-import utils
+from src.board import Board
+from src.button import Button
+import src.utils as utils
 
 
 def play_game(stdscr: curses.window) -> None:
@@ -62,11 +62,11 @@ class Banner:
         Draw the banner on the screen.
         """
         for i, line in enumerate(Banner.lines):
-            stdscr.addstr(i, utils.center(Banner.width), line)
+            stdscr.addstr(i, utils.center(stdscr, Banner.width), line)
         stdscr.refresh()
 
 
-def player_turn(stdscr: curses.window, player: str | chr, board: Board) -> tuple:
+def player_turn(stdscr: curses.window, player: Union[str, chr], board: Board) -> tuple:
     """
     Allow the specified player to take their turn on the game board.
 
@@ -82,7 +82,7 @@ def player_turn(stdscr: curses.window, player: str | chr, board: Board) -> tuple
         y = Board.get_board_height() + board.y + 2
         utils.clear_y(stdscr, y)
         str = "It's Player {}'s turn.".format(player)
-        stdscr.addstr(y, utils.center(len(str)), str)
+        stdscr.addstr(y, utils.center(stdscr, len(str)), str)
         stdscr.refresh()
 
         event = stdscr.getch()
@@ -105,7 +105,7 @@ def player_turn(stdscr: curses.window, player: str | chr, board: Board) -> tuple
             prev_click = [row, col]
 
             # Prevent double click by long press
-            time.sleep(0.5)
+            sleep(0.5)
         else:
             prev_click = [None, None]
 
@@ -119,7 +119,7 @@ def footer(stdscr: curses.window) -> None:
     Raises:
         KeyboardInterrupt: If the user quits the game by pressing 'q'.
     """
-    max_y, _ = curses.getmaxyx()
+    max_y, _ = stdscr.getmaxyx()
     stdscr.addstr(max_y - 1, 0, chr(0x00a9) + " flatiger 2024  |  Press 'q' at any time to quit")
     stdscr.refresh()
 
@@ -127,9 +127,9 @@ def footer(stdscr: curses.window) -> None:
 def display_connection(stdscr: curses.window, conn: str):
     clear_draw_ui(stdscr)
     str = f"Connected to {conn}."
-    stdscr.addstr(Banner.height + 2, utils.center(len(str)), str)
+    stdscr.addstr(Banner.height + 2, utils.center(stdscr, len(str)), str)
     stdscr.refresh()
-    time.sleep(0.5)
+    sleep(0.5)
 
 
 def clear_draw_ui(stdscr: curses.window) -> None:
@@ -150,24 +150,24 @@ def online_game(stdscr: curses.window, conn: socket.socket, player: str) -> None
         if player == players[turn]:
             string = f"Your turn! ({player})"
             utils.clear_y(stdscr, text_y)
-            stdscr.addstr(text_y, utils.center(len(string)), string)
+            stdscr.addstr(text_y, utils.center(stdscr, len(string)), string)
             row, col = player_turn(stdscr, player, board)
-            conn.send(json.dumps((row, col)).encode())
+            conn.send(dumps((row, col)).encode())
 
         else:
             string = "Waiting for opponent..."
             utils.clear_y(stdscr, text_y)
-            stdscr.addstr(text_y, utils.center(len(string)), string)
+            stdscr.addstr(text_y, utils.center(stdscr, len(string)), string)
 
             opp_choice = conn.recv(1024).decode()
             if not opp_choice:
                 string = "Connection failed! Exiting game..."
                 utils.clear_y(stdscr, text_y)
-                stdscr.addstr(text_y, utils.center(len(string)), string)
-                time.sleep(1)
+                stdscr.addstr(text_y, utils.center(stdscr, len(string)), string)
+                sleep(1)
                 end_game()
 
-            opp_choice = json.loads(opp_choice)
+            opp_choice = loads(opp_choice)
             board.update_board(players[turn], opp_choice[0], opp_choice[1])
 
         board.draw_values()
@@ -182,7 +182,7 @@ def online_game(stdscr: curses.window, conn: socket.socket, player: str) -> None
                 string = "IT'S A TIE"
             else:
                 string = "lmao YOU LOSE"
-            stdscr.addstr(text_y, utils.center(len(string)), string)
+            stdscr.addstr(text_y, utils.center(stdscr, len(string)), string)
             stdscr.getch()
             break
 
@@ -195,23 +195,23 @@ def host_game(stdscr: curses.window, port: int=12345):
         clear_draw_ui(stdscr)
 
         string = f"Your IP is: {utils.get_public_ip()}."
-        stdscr.addstr(Banner.height + 2, utils.center(len(string)), string)
+        stdscr.addstr(Banner.height + 2, utils.center(stdscr, len(string)), string)
         string = f"Listening on port {port}."
-        stdscr.addstr(Banner.height + 2, utils.center(len(string)), string)
+        stdscr.addstr(Banner.height + 3, utils.center(stdscr, len(string)), string)
         stdscr.refresh()
 
     def choose_character() -> str:
         clear_draw_ui(stdscr)
         string = f"Choose your character:"
-        stdscr.addstr(Banner.height + 2, utils.center(len(string)), string)
+        stdscr.addstr(Banner.height + 2, utils.center(stdscr, len(string)), string)
         button_y = Banner.height + 5
         xo_button_length = len('x') + 2
         randomize_button_length = len('randomize') + 2
         total_button_length = xo_button_length * 2 + randomize_button_length + 2 * 2
         buttons = [
-            Button(stdscr=stdscr, label="X", x=utils.center(total_button_length) - total_button_length / 2, y=button_y),
-            Button(stdscr=stdscr, label='Y', x=utils.center(total_button_length) - total_button_length / 2 + xo_button_length, y=button_y),
-            Button(stdscr=stdscr, label="Randomize", x=utils.center(total_button_length) - randomize_button_length, y=button_y, parameter="R")
+            Button(stdscr=stdscr, label="X", x=utils.center(stdscr, total_button_length) - total_button_length / 2, y=button_y),
+            Button(stdscr=stdscr, label='Y', x=utils.center(stdscr, total_button_length) - total_button_length / 2 + xo_button_length, y=button_y),
+            Button(stdscr=stdscr, label="Randomize", x=utils.center(stdscr, total_button_length) - randomize_button_length, y=button_y, parameter="R")
         ]
         for button in buttons:
             button.draw()
@@ -232,17 +232,35 @@ def host_game(stdscr: curses.window, port: int=12345):
                     if str(button) != 'R':
                         return str(button)
                     else:
-                        return random.choice(players)
+                        return choice(players)
 
     host = "0.0.0.0"
     players = ['X', 'O']
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((host, port))
+
+        # Set curses and socket to non-blocking to allow for 'q' buttonpress
+        stdscr.nodelay(1)
+        s.setblocking(False)
+
         s.listen()
         display_ip()
-        conn, addr = s.accept()
+        while True:
+            ch = stdscr.getch()
+            if ch and ch == ord('q'):
+                end_game()
 
+            try:
+                conn, addr = s.accept()
+                if conn:
+                    break
+            except BlockingIOError:
+                continue
+
+        # Re-enable blocking
+        stdscr.nodelay(0)
+        s.setblocking(True)
         with conn:
             display_connection(stdscr, conn)
             player = choose_character()
@@ -264,15 +282,15 @@ def join_game(stdscr: curses,window):
     while True:
         while True:
             utils.clear_y(stdscr, text_y)
-            stdscr.addstr(text_y, utils.center(len(string)), string)
+            stdscr.addstr(text_y, utils.center(stdscr, len(string)), string)
             stdscr.refresh()
-            host = utils.get_input(stdscr, text_y + 1, utils.center(len(string)))
+            host = utils.get_input(stdscr, text_y + 1, utils.center(stdscr, len(string)))
             if utils.is_valid_ip(host):
                 break
 
         port = 12345
         string = f"Connecting to {host}..."
-        stdscr.addstr(text_y, utils.center(len(string)), string)
+        stdscr.addstr(text_y, utils.center(stdscr, len(string)), string)
         stdscr.refresh()
 
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -281,22 +299,22 @@ def join_game(stdscr: curses,window):
                 s.connect((host, port))
             except TimeoutError:
                 string = f"Couldn't connect to {host}: Connection timed out."
-                stdscr.addstr(text_y, utils.center(len(string)), string)
+                stdscr.addstr(text_y, utils.center(stdscr, len(string)), string)
                 stdscr.refresh()
                 continue
             except Exception as e:
                 string = f"An error occurred while connecting to {host}: {e}"
-                stdscr.addstr(text_y, utils.center(len(string)), string)
+                stdscr.addstr(text_y, utils.center(stdscr, len(string)), string)
                 stdscr.refresh()
                 continue
 
             string = f"Connected! The host is choosing their character."
-            stdscr.addstr(text_y, utils.center(len(string)), string)
+            stdscr.addstr(text_y, utils.center(stdscr, len(string)), string)
             stdscr.refresh()
 
             player = s.recv(1024).decode()
             string = f"You are player {player}. Click anywhere to continue."
-            stdscr.addstr(text_y, utils.center(len(string)), string)
+            stdscr.addstr(text_y, utils.center(stdscr, len(string)), string)
             stdscr.refresh()
             stdscr.getch()
 
@@ -314,7 +332,7 @@ def local_game(stdscr: curses.window) -> None:
     Raises:
         KeyboardInterrupt: If the user quits the game by pressing 'q'.
     """
-    def display_winner(player: str | chr, y: int) -> None:
+    def display_winner(player: Union[str, chr], y: int) -> None:
         """
         Display a message indicating the winner of the game.
 
@@ -327,7 +345,7 @@ def local_game(stdscr: curses.window) -> None:
         """
         utils.clear_y(stdscr, y)
         string = "Player {} wins! Click anywhere to continue...".format(player)
-        stdscr.addstr(y, utils.center(len(string)), string)
+        stdscr.addstr(y, utils.center(stdscr, len(string)), string)
         stdscr.getch()
 
     def display_tie(y: int) -> None:
@@ -342,19 +360,19 @@ def local_game(stdscr: curses.window) -> None:
         """
         utils.clear_y(stdscr, y)
         string = "It's a tie! Click anywhere to continue..."
-        stdscr.addstr(y, utils.center(len(string)), string)
+        stdscr.addstr(y, utils.center(stdscr, len(string)), string)
         stdscr.getch()
 
     players = ['X', 'O']
     turn = 0
-    board = Board(y=Banner.height + 2)
+    board = Board(stdscr, y=Banner.height + 2)
 
     clear_draw_ui(stdscr)
     board.draw_board()
     while True:
         utils.clear_y(stdscr, Board.get_board_height() + board.y + 2)
         string = "It's Player {}'s turn.".format(players[turn])
-        stdscr.addstr(Board.get_board_height() + board.y + 2, utils.center(len(string)), string)
+        stdscr.addstr(Board.get_board_height() + board.y + 2, utils.center(stdscr, len(string)), string)
         stdscr.refresh()
         player_turn(stdscr, players[turn], board)
         board.draw_values()
@@ -398,7 +416,7 @@ def cpu_game(stdscr: curses.window) -> None:
             string = "CPU wins! Click anywhere to continue..."
         else:
             string = "Player {} wins! Click anywhere to continue...".format(player)
-        stdscr.addstr(y, utils.center(len(string)), string)
+        stdscr.addstr(y, utils.center(stdscr, len(string)), string)
         stdscr.getch()
 
     def display_tie(y: int) -> None:
@@ -413,7 +431,7 @@ def cpu_game(stdscr: curses.window) -> None:
         """
         utils.clear_y(stdscr, y)
         string = "It's a tie! Click anywhere to continue..."
-        stdscr.addstr(y, utils.center(len(string)), string)
+        stdscr.addstr(y, utils.center(stdscr, len(string)), string)
         stdscr.getch()
 
     def computer_turn(board: Board, player: str, opponent: str) -> None:
@@ -428,11 +446,11 @@ def cpu_game(stdscr: curses.window) -> None:
         y = Board.get_board_height() + board.y + 2
         utils.clear_y(stdscr, y)
         string = "CPU's turn."
-        stdscr.addstr(y, utils.center(len(string)), string)
+        stdscr.addstr(y, utils.center(stdscr, len(string)), string)
         stdscr.refresh()
 
         # Introduce a slight delay to mimic CPU's processing time
-        time.sleep(0.5)
+        sleep(0.5)
 
         # Try to win if possible
         if try_to_win(board, player):
@@ -445,7 +463,7 @@ def cpu_game(stdscr: curses.window) -> None:
         # If no winning or blocking moves available, choose a random empty cell
         empty_cells = [(row, col) for row in range(3) for col in range(3) if board.is_empty(row, col)]
         if empty_cells:
-            row, col = random.choice(empty_cells)
+            row, col = choice(empty_cells)
             board.update_board(player, row, col)
 
     def try_to_win(board: Board, player: str) -> bool:
@@ -506,14 +524,14 @@ def cpu_game(stdscr: curses.window) -> None:
     board.draw_board()
 
     # Determine who goes first
-    first_turn = random.randint(0, 1)
+    first_turn = randint(0, 1)
     if first_turn == 1:
         turn += 1
 
     while True:
         if turn % 2 == 0:
             string = "It's Player {}'s turn.".format(player)
-            stdscr.addstr(Board.get_board_height() + board.y + 2, utils.center(len(string)), string)
+            stdscr.addstr(Board.get_board_height() + board.y + 2, utils.center(stdscr, len(string)), string)
             stdscr.refresh()
             player_turn(player, board)
         else:
@@ -555,10 +573,10 @@ def play_again(stdscr: curses.window) -> bool:
     width = len(lines[0])
     height = len(lines)
     for i, line in enumerate(lines):
-        stdscr.addstr(i, utils.center(width), line)
+        stdscr.addstr(i, utils.center(stdscr, width), line)
 
-    buttons = [Button(stdscr=stdscr, parameter="yes", label="Yes", x=utils.center(7) - 5, y=height + 2),
-               Button(stdscr=stdscr, parameter="no", label="No ", x=utils.center(7) + 5, y=height + 2)]
+    buttons = [Button(stdscr=stdscr, parameter="yes", label="Yes", x=utils.center(stdscr, 7) - 5, y=height + 2),
+               Button(stdscr=stdscr, parameter="no", label="No ", x=utils.center(stdscr, 7) + 5, y=height + 2)]
 
     for button in buttons:
         button.draw()
@@ -593,19 +611,19 @@ def choose_game_mode(stdscr: curses.window) -> str:
     buttons = []
 
     host_str = "Host "
-    host_button = Button(stdscr=stdscr, parameter="host", label=host_str, x=utils.center(len(host_str) + 4), y=3 * len(buttons) + Banner.height + 1)
+    host_button = Button(stdscr=stdscr, parameter="host", label=host_str, x=utils.center(stdscr, len(host_str) + 4), y=3 * len(buttons) + Banner.height + 1)
     buttons.append(host_button)
 
     join_str = "Join "
-    join_button = Button(stdscr=stdscr, parameter="join", label=join_str, x=utils.center(len(join_str) + 4), y=3 * len(buttons) + Banner.height + 1)
+    join_button = Button(stdscr=stdscr, parameter="join", label=join_str, x=utils.center(stdscr, len(join_str) + 4), y=3 * len(buttons) + Banner.height + 1)
     buttons.append(join_button)
 
     local_str = "Local"
-    local_button = Button(stdscr=stdscr, parameter="local", label=local_str, x=utils.center(len(local_str) + 4), y=3 * len(buttons) + Banner.height + 1)
+    local_button = Button(stdscr=stdscr, parameter="local", label=local_str, x=utils.center(stdscr, len(local_str) + 4), y=3 * len(buttons) + Banner.height + 1)
     buttons.append(local_button)
 
     cpu_str = "CPU  "
-    cpu_button = Button(stdscr=stdscr, parameter="cpu", label=cpu_str, x=utils.center(len(cpu_str) + 4), y=3 * len(buttons) + Banner.height + 1)
+    cpu_button = Button(stdscr=stdscr, parameter="cpu", label=cpu_str, x=utils.center(stdscr, len(cpu_str) + 4), y=3 * len(buttons) + Banner.height + 1)
     buttons.append(cpu_button)
 
     for button in buttons:
