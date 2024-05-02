@@ -145,10 +145,6 @@ def join_game():
             players = ['X', 'O']
             type_text("The host is choosing their character.")
             player = s.recv(1024).decode()
-            if player == players[0]:
-                opponent = players[1]
-            else:
-                opponent = players[0]
             type_input(f"You are player {player}. Press enter to continue...")
 
             play_game(conn=s, player=player)
