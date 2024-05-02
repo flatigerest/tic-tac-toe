@@ -1,8 +1,9 @@
 import curses
 import requests
 from ipaddress import ip_address
+from typing import Union
 
-def center(stdscr: curses.window, num: int | float) -> int:
+def center(stdscr: curses.window, num: Union[int, float]) -> int:
     """
     Calculate the center position of a screen given a width.
 
@@ -27,7 +28,7 @@ def clear_y(stdscr: curses.window, y: int) -> None:
     stdscr.addstr(y, 0, " " * (max_x - 1))
 
 
-def get_public_ip() -> str | None:
+def get_public_ip() -> Union[str, None]:
     """
     Retrieve the public IP address of the current device.
 

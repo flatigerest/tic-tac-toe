@@ -1,10 +1,11 @@
 from curses import window, A_REVERSE
 from time import sleep
+from typing import Union
 
 class Button:
     _sleep_time: float = 0.1
 
-    def __init__(self, stdscr: window, label: str, x: int, y: int, parameter: str | None=None) -> None:
+    def __init__(self, stdscr: window, label: str, x: int, y: int, parameter: Union[str, None]=None) -> None:
         """
         Initialize a Button object.
 

@@ -145,7 +145,7 @@ class Board:
                 self.stdscr.addstr(self.y + 1 + self._cell_height * i, self.x + 3 + self._cell_width * j, val)
         self.stdscr.refresh()
 
-    def get_winner(self) -> str | None:
+    def get_winner(self) -> Union[str, None]:
         """
         Check if there is a winner on the game board.
 
