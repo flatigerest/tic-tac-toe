@@ -3,18 +3,15 @@ import sys
 import time
 import socket
 import json
-from requests import get as requestsget
-from random import randint
+import requests
+import random
 import ipaddress
 import functools
-
-MAX_Y = None
-MAX_X = None
-STDSCR = None
+from typing import List
 
 
-def debug(func):
-    """Print the function signature and return value"""
+def debug(func) -> any:
+    """Print the function signature and return value (not mine)"""
     @functools.wraps(func)
     def wrapper_debug(*args, **kwargs):
         args_repr = [repr(a) for a in args]
@@ -28,23 +25,25 @@ def debug(func):
 
 
 class Button:
-    _sleep_time = 0.1
+    _sleep_time: float = 0.1
 
-    def __init__(self, parameter, label, x, y):
+    def __init__(self, stdscr: curses.window, label: str, x: int, y: int, parameter: str | None=None) -> None:
         """
         Initialize a Button object.
 
         Args:
-            parameter (str): The parameter associated with the button.
             label (str): The label displayed on the button.
             x (int): The x-coordinate of the top-left corner of the button.
             y (int): The y-coordinate of the top-left corner of the button.
+            parameter (str, optional): The parameter associated with the button. Defaults to None.
         """
-        self.parameter = parameter
-        self.label = label
-        self.x = x
-        self.y = y
-        self.area = {
+        self.stdscr: curses.window = stdscr
+        self.parameter: str = parameter if parameter is not None else label
+        self.label: str = label
+        self.x: int = x
+        self.y: int = y
+        # Define the area of the button as a dictionary with x and y coordinates
+        self.area: dict = {
             "x": [num for num in range(x + 1, x + len(self.label))],
             "y": [y + 1]
         }
@@ -55,50 +54,50 @@ class Button:
         """
         return self.parameter
 
-    def draw(self, hl=False):
+    def draw(self, hl: bool=False):
         """
         Draw the button on the screen.
 
         Args:
             hl (bool, optional): If True, highlight the button. Defaults to False.
         """
-        # Define characters
-        h = chr(0x2501)
-        v = chr(0x2502)
-        tl = chr(0x250d)
-        tr = chr(0x2511)
-        bl = chr(0x2515)
-        br = chr(0x2519)
-        width = len(self.label) + 4
+        # Define characters for drawing the button border
+        h: chr = chr(0x2501)
+        v: chr = chr(0x2502)
+        tl: chr = chr(0x250d)
+        tr: chr = chr(0x2511)
+        bl: chr = chr(0x2515)
+        br: chr = chr(0x2519)
+        width: int = len(self.label) + 4  # Calculate the width of the button
 
         # Draw top border
-        STDSCR.addstr(self.y, self.x, tl + h * (width - 2) + tr)
+        self.stdscr.addstr(self.y, self.x, tl + h * (width - 2) + tr)
 
         # Draw text with side borders
-        STDSCR.addstr(self.y + 1, self.x, v + " ")
+        self.stdscr.addstr(self.y + 1, self.x, v + " ")
         if hl:
-            STDSCR.addstr(self.label, curses.A_REVERSE)
+            self.stdscr.addstr(self.label, curses.A_REVERSE)
         else:
-            STDSCR.addstr(self.label)
-        STDSCR.addstr(" " + v)
+            self.stdscr.addstr(self.label)
+        self.stdscr.addstr(" " + v)
 
         # Draw bottom border
-        STDSCR.addstr(self.y + 2, self.x, bl + h * (width - 2) + br)
-        STDSCR.refresh()
+        self.stdscr.addstr(self.y + 2, self.x, bl + h * (width - 2) + br)
+        self.stdscr.refresh()
 
     def click(self):
         """
         Simulate a button click by highlighting and unhighlighting the button.
         """
         for _ in range(2):
-            self.draw(True)
-            STDSCR.refresh()
+            self.draw(hl=True)  # Highlight the button
+            self.stdscr.refresh()
             time.sleep(self._sleep_time)
-            self.draw(False)
-            STDSCR.refresh()
+            self.draw(hl=False)  # Unhighlight the button
+            self.stdscr.refresh()
             time.sleep(self._sleep_time)
 
-    def in_bounds(self, x, y) -> bool:
+    def in_bounds(self, x: int, y: int) -> bool:
         """
         Check if the given coordinates are within the boundaries of the button.
 
@@ -113,13 +112,13 @@ class Button:
 
 
 class Board:
-    _board_width = 23
-    _board_height = 11
-    _cell_width = 8
-    _cell_height = 4
-    _board = [[' ']*3 for _ in range(3)]
+    _board_width: int = 23
+    _board_height: int = 11
+    _cell_width: int = 8
+    _cell_height: int = 4
+    _board: List[List[str]] = [[' ']*3 for _ in range(3)]
 
-    def __init__(self, x=None, y=None) -> None:
+    def __init__(self, stdscr: curses.window, x: int=None, y: int=None) -> None:
         """
         Initialize a Board object.
 
@@ -127,31 +126,28 @@ class Board:
             x (int, optional): The x-coordinate of the top-left corner of the board. Defaults to None.
             y (int, optional): The y-coordinate of the top-left corner of the board. Defaults to None.
         """
-        self.x = center(self._board_width) if x is None else x
-        self.y = center(self._board_height) if y is None else y
-        self._lines = self._generate_board()
+        self.stdscr: curses.window = stdscr
+        # Set the coordinates of the top-left corner of the board
+        self.x: int = center(self._board_width) if x is None else x
+        self.y: int = center(self._board_height) if y is None else y
+        # Generate the initial representation of the board
+        self._lines: List[str] = self._generate_board()
 
     def _generate_board(self) -> list:
         """
-        Generate the ASCII representation of the game board.
+        Generate the Unicode representation of the game board.
 
         Returns:
             list: The lines representing the game board.
         """
-        cross = chr(0x256c)
-        horizontal = chr(0x2550)
-        vertical = chr(0x2551)
-        h_line = (horizontal * 7 + cross) * 2 + horizontal * 7
-        blank_line = (" " * 7 + vertical) * 2
+        cross: chr = chr(0x256c)
+        horizontal: chr = chr(0x2550)
+        vertical: chr = chr(0x2551)
+        h_line: str = (horizontal * 7 + cross) * 2 + horizontal * 7
+        blank_line: str = (" " * 7 + vertical) * 2
         return [blank_line] * 3 + [h_line] + [blank_line] * 3 + [h_line] + [blank_line] * 3
 
-    def clear_board() -> None:
-        """
-        Clear the game board by resetting all cells to empty.
-        """
-        Board._board = [[' ']*3 for _ in range(3)]
-
-    def is_empty(self, row, col) -> bool:
+    def is_empty(self, row: int, col: int) -> bool:
         """
         Check if a cell on the board is empty.
 
@@ -164,7 +160,10 @@ class Board:
         """
         return self._board[row][col] == " "
 
-    def highlight_cell(self, row, col, undo=False) -> bool:
+    def clear_cell(self, row: int, col: int) -> None:
+        self._board[row][col] = " "
+
+    def highlight_cell(self, row: int, col: int, undo: bool=False) -> bool:
         """
         Highlight or unhighlight a cell on the board.
 
@@ -177,56 +176,56 @@ class Board:
             bool: True if the cell is empty, False otherwise.
         """
         if self.is_empty(row, col):
-            y_offset = self.y + row * 4
-            x_offset = self.x + col * 8
+            y_offset: int = self.y + row * 4
+            x_offset: int = self.x + col * 8
             for i in range(3):
                 if undo:
-                    STDSCR.addstr(y_offset + i, x_offset, "       ")
+                    self.stdscr.addstr(y_offset + i, x_offset, "       ")
                 else:
-                    STDSCR.addstr(y_offset + i, x_offset, "       ", curses.A_REVERSE)
-            STDSCR.refresh()
+                    self.stdscr.addstr(y_offset + i, x_offset, "       ", curses.A_REVERSE)
+            self.stdscr.refresh()
 
-    def in_bounds(self, mx, my) -> bool:
+    def in_bounds(self, x: int, y: int) -> bool:
         """
         Check if the given coordinates are within the boundaries of the board.
 
         Args:
-            mx (int): The x-coordinate to check.
-            my (int): The y-coordinate to check.
+            x (int): The x-coordinate to check.
+            y (int): The y-coordinate to check.
 
         Returns:
             bool: True if the coordinates are within the board, False otherwise.
         """
-        mx -= self.x
-        my -= self.y
-        if (mx < 0) or \
-            (my < 0) or \
-            (mx > self._board_width) or \
-            (my > self._board_height) or \
-            (mx % self._cell_width == self._cell_width - 1) or \
-            (my % self._cell_height == self._cell_height - 1):
+        x -= self.x
+        y -= self.y
+        if (x < 0) or \
+            (y < 0) or \
+            (x > self._board_width) or \
+            (y > self._board_height) or \
+            (x % self._cell_width == self._cell_width - 1) or \
+            (y % self._cell_height == self._cell_height - 1):
                 return False
         else:
             return True
 
-    def get_cell(self, mx, my) -> tuple:
+    def get_cell(self, x: int, y: int) -> tuple:
         """
         Get the row and column indices of the cell corresponding to the given coordinates.
 
         Args:
-            mx (int): The x-coordinate to check.
-            my (int): The y-coordinate to check.
+            x (int): The x-coordinate to check.
+            y (int): The y-coordinate to check.
 
         Returns:
             tuple: A tuple containing the row and column indices of the cell.
         """
-        mx -= self.x
-        my -= self.y
-        row = my // self._cell_height
-        col = mx // self._cell_width
+        x -= self.x
+        y -= self.y
+        row: int = y // self._cell_height
+        col: int = x // self._cell_width
         return row, col
 
-    def update_board(self, player, row, col) -> None:
+    def update_board(self, player: str | chr, row: int, col: int) -> None:
         """
         Update the value of a cell on the board with the specified player symbol.
 
@@ -242,8 +241,8 @@ class Board:
         Draw the game board on the screen.
         """
         for i, line in enumerate(self._lines):
-            STDSCR.addstr(self.y + i, self.x, line)
-        STDSCR.refresh()
+            self.stdscr.addstr(self.y + i, self.x, line)
+        self.stdscr.refresh()
 
     def draw_values(self) -> None:
         """
@@ -251,8 +250,8 @@ class Board:
         """
         for i, row in enumerate(self._board):
             for j, val in enumerate(row):
-                STDSCR.addstr(self.y + 1 + self._cell_height * i, self.x + 3 + self._cell_width * j, val)
-        STDSCR.refresh()
+                self.stdscr.addstr(self.y + 1 + self._cell_height * i, self.x + 3 + self._cell_width * j, val)
+        self.stdscr.refresh()
 
     def get_winner(self) -> str | None:
         """
@@ -283,6 +282,7 @@ class Board:
 
         return None
 
+    @staticmethod
     def get_board_width() -> int:
         """
         Get the width of the game board.
@@ -292,6 +292,7 @@ class Board:
         """
         return Board._board_width
 
+    @staticmethod
     def get_board_height() -> int:
         """
         Get the height of the game board.
@@ -301,8 +302,15 @@ class Board:
         """
         return Board._board_height
 
+    @staticmethod
+    def clear_board() -> None:
+        """
+        Clear the game board by resetting all cells to empty.
+        """
+        Board._board = [[' ']*3 for _ in range(3)]
 
-def center(num) -> int:
+
+def center(num: int | float) -> int:
     """
     Calculate the center position of a screen given a width.
 
@@ -312,26 +320,30 @@ def center(num) -> int:
     Returns:
         int: The x-coordinate of the center position.
     """
-    return (MAX_X - num) // 2
+    _, max_x = curses.getmaxyx()
+    return (max_x - num) // 2
 
 
-def player_turn(player, board: Board) -> None:
+def player_turn(stdscr: curses.window, player: str | chr, board: Board) -> tuple:
     """
     Allow the specified player to take their turn on the game board.
 
     Args:
         player (str): The symbol representing the current player.
         board (Board): The game board on which the player is taking their turn.
+
+    Returns:
+        tuple: A tuple containing the row and column indices of the cell where the player made their move.
     """
     prev_click = [None, None]
     while True:
         y = Board.get_board_height() + board.y + 2
-        clear_y(y)
+        clear_y(stdscr, y)
         str = "It's Player {}'s turn.".format(player)
-        STDSCR.addstr(y, center(len(str)), str)
-        STDSCR.refresh()
+        stdscr.addstr(y, center(len(str)), str)
+        stdscr.refresh()
 
-        event = STDSCR.getch()
+        event = stdscr.getch()
         mx, my = get_mouse_xy()
 
 
@@ -345,12 +357,12 @@ def player_turn(player, board: Board) -> None:
                 if prev_click == [row, col]:
                     board.highlight_cell(row, col, undo=True)
                     board.update_board(player, row, col)
-                    return
+                    return row, col
             if prev_click[0] is not None:
                 board.highlight_cell(prev_click[0], prev_click[1], undo=True)
             prev_click = [row, col]
 
-            # Prevent double click by longpress
+            # Prevent double click by long press
             time.sleep(0.5)
         else:
             prev_click = [None, None]
@@ -360,35 +372,37 @@ class Banner:
     """
     A class representing a banner to be displayed on the screen.
     """
-    lines = ["╔─────────────────────────────╗",
+    lines: List[str] = ["╔─────────────────────────────╗",
              "│┌┬┐┬┌─┐  ┌┬┐┌─┐┌─┐  ┌┬┐┌─┐┌─┐│",
              "│ │ ││     │ ├─┤│     │ │ │├┤ │",
              "│ ┴ ┴└─┘   ┴ ┴ ┴└─┘   ┴ └─┘└─┘│",
              "╚─────────────────────────────╝"
     ]
-    width = len(lines[0])
-    height = len(lines)
+    width: int = len(lines[0])
+    height: int = len(lines)
 
-    def draw() -> None:
+    @staticmethod
+    def draw(stdscr: curses.window) -> None:
         """
         Draw the banner on the screen.
         """
         for i, line in enumerate(Banner.lines):
-            STDSCR.addstr(i, center(Banner.width), line)
-        STDSCR.refresh()
+            stdscr.addstr(i, center(Banner.width), line)
+        stdscr.refresh()
 
 
-def clear_y(y) -> None:
+def clear_y(stdscr: curses.window, y: int) -> None:
     """
     Clear a line on the screen.
 
     Args:
         y (int): The y-coordinate of the line to clear.
     """
-    STDSCR.addstr(y, 0, " " * (MAX_X - 1))
+    _, max_x = curses.getmaxyx()
+    stdscr.addstr(y, 0, " " * (max_x - 1))
 
 
-def footer() -> None:
+def footer(stdscr: curses.window) -> None:
     """
     Display the footer at the bottom of the screen.
 
@@ -397,11 +411,12 @@ def footer() -> None:
     Raises:
         KeyboardInterrupt: If the user quits the game by pressing 'q'.
     """
-    STDSCR.addstr(MAX_Y - 1, 0, chr(0x00a9) + " flatiger 2024  |  Press 'q' at any time to quit")
-    STDSCR.refresh()
+    max_y, _ = curses.getmaxyx()
+    stdscr.addstr(max_y - 1, 0, chr(0x00a9) + " flatiger 2024  |  Press 'q' at any time to quit")
+    stdscr.refresh()
 
 
-def get_public_ip():
+def get_public_ip() -> str | None:
     """
     Retrieve the public IP address of the current device.
 
@@ -412,90 +427,275 @@ def get_public_ip():
 
     Returns:
         str | None: The public IP address of the device if retrieved successfully, else None.
-
-    Raises:
-        None
     """
     try:
-        response = requestsget('https://httpbin.org/ip')
+        response = requests.get('https://httpbin.org/ip', timeout=5)
         if response.status_code == 200:
             ip_info = response.json()
-            return ip_info['origin']
+            return ip_info.get('origin', None)
         else:
             print(f"Failed to retrieve public IP. Status code: {response.status_code}")
             return None
-    except Exception as e:
-        print(f"An error occurred: {e}")
+    except requests.exceptions.Timeout:
+        print("Timeout error: The request to retrieve the public IP timed out.")
+        return None
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred while retrieving public IP: {e}")
         return None
 
 
-def get_input(x: int, y: int) -> str:
+def get_input(stdscr: curses.window, x: int, y: int) -> str:
+    """
+    Prompt the user for input at the specified screen coordinates.
+
+    Parameters:
+        x (int): The x-coordinate of the input prompt.
+        y (int): The y-coordinate of the input prompt.
+
+    Returns:
+        str: The user-entered input string.
+
+    Raises:
+        None
+
+    Description:
+        This function prompts the user to enter text input at the specified
+        coordinates on the screen using the curses library. It allows the user
+        to input text and provides basic text editing functionality, including
+        the ability to delete characters with the Backspace key. The input is
+        terminated when the user presses the Enter key, and the entered string
+        is returned.
+
+        Example usage:
+            input_str = get_input(5, 5)
+    """
     curses.curs_set(1)
     user_input = ""
 
     while True:
-        char = STDSCR.getch()
+        char = stdscr.getch()
 
-        if char == 10:
-            break
+        if char == 10:  # Enter key
+            if user_input.strip():  # Check if input is not empty
+                break
+            else:
+                continue
+
+        # Backspace key
+        if char == 127 or char == 8:
+            if user_input:
+                user_input = user_input[:-1]
+                stdscr.addstr(y, x, " " * len(user_input))
+                stdscr.addstr(y, x, user_input)
+                stdscr.move(y, x + len(user_input))
+            continue
 
         # Append to input
         user_input += chr(char)
-
-        STDSCR.move(y, x)
-        STDSCR.clrtoeol()
-        STDSCR.addstr(y, x, user_input)
+        stdscr.addstr(y, x + len(user_input) - 1, chr(char))
 
     curses.curs_set(0)
     return user_input
 
 
-def host_game(port: int=12345):
-    def display_ip():
-        STDSCR.clear()
-        Banner.draw()
-        str = f"Your IP is: {get_public_ip()}."
-        STDSCR.addstr(Banner.height + 2, center(len(str)), str)
-        str = f"Listening on port {port}."
-        STDSCR.addstr(Banner.height + 2, center(len(str)), str)
-        STDSCR.refresh()
+def display_connection(stdscr: curses.window, conn: str):
+    clear_draw_ui(stdscr)
+    str = f"Connected to {conn}."
+    stdscr.addstr(Banner.height + 2, center(len(str)), str)
+    stdscr.refresh()
+    time.sleep(0.5)
 
-    def display_connection(conn: str):
-        STDSCR.clear()
-        Banner.draw()
-        str = f"Connected to {conn}."
-        STDSCR.addstr(Banner.height + 2, center(len(str)), str)
-        STDSCR.refresh()
-        time.sleep(0.5)
 
-    def choose_character() -> str:
-        STDSCR.clear()
-        Banner.draw()
-        str = f"Choose your character:"
-        STDSCR.addstr(Banner.height + 2, center(len(str)), str)
-        
+def clear_draw_ui(stdscr: curses.window) -> None:
+    stdscr.clear()
+    Banner.draw(stdscr)
+    footer(stdscr)
 
-    host = "0.0.0.0"
+
+def is_valid_ip(ip: str) -> bool:
+    """
+    Check if the given string is a valid IP address.
+
+    Args:
+        ip (str): The string to check.
+
+    Returns:
+        bool: True if the string is a valid IP address, False otherwise.
+    """
+    try:
+        ipaddress.ip_address(ip)
+        return True
+    except ValueError:
+        return False
+
+
+def online_game(stdscr: curses.window, conn: socket.socket, player: str) -> None:
     players = ['X', 'O']
     turn = 0
     board = Board(y=Banner.height + 2)
+
+    clear_draw_ui(stdscr)
+    board.draw_board()
+    text_y = Board.get_board_height() + board.y + 2
+    while True:
+        if player == players[turn]:
+            string = f"Your turn! ({player})"
+            clear_y(stdscr, text_y)
+            stdscr.addstr(text_y, center(len(string)), string)
+            row, col = player_turn(stdscr, player, board)
+            conn.send(json.dumps((row, col)).encode())
+
+        else:
+            string = "Waiting for opponent..."
+            clear_y(stdscr, text_y)
+            stdscr.addstr(text_y, center(len(string)), string)
+
+            opp_choice = conn.recv(1024).decode()
+            if not opp_choice:
+                string = "Connection failed! Exiting game..."
+                clear_y(stdscr, text_y)
+                stdscr.addstr(text_y, center(len(string)), string)
+                time.sleep(1)
+                end_game()
+
+            opp_choice = json.loads(opp_choice)
+            board.update_board(players[turn], opp_choice[0], opp_choice[1])
+
+        board.draw_values()
+        winner = board.get_winner()
+
+        if winner is not None:
+            clear_y(stdscr, text_y)
+
+            if winner == player:
+                string = "YOU WIN!!!"
+            elif winner == 'tie':
+                string = "IT'S A TIE"
+            else:
+                string = "lmao YOU LOSE"
+            stdscr.addstr(text_y, center(len(string)), string)
+            stdscr.getch()
+            break
+
+        stdscr.refresh()
+        turn = (turn + 1) % 2
+
+
+def host_game(stdscr: curses.window, port: int=12345):
+    def display_ip():
+        clear_draw_ui(stdscr)
+
+        string = f"Your IP is: {get_public_ip()}."
+        stdscr.addstr(Banner.height + 2, center(len(string)), string)
+        string = f"Listening on port {port}."
+        stdscr.addstr(Banner.height + 2, center(len(string)), string)
+        stdscr.refresh()
+
+    def choose_character() -> str:
+        clear_draw_ui(stdscr)
+        string = f"Choose your character:"
+        stdscr.addstr(Banner.height + 2, center(len(string)), string)
+        button_y = Banner.height + 5
+        xo_button_length = len('x') + 2
+        randomize_button_length = len('randomize') + 2
+        total_button_length = xo_button_length * 2 + randomize_button_length + 2 * 2
+        buttons = [
+            Button(stdscr=stdscr, label="X", x=center(total_button_length) - total_button_length / 2, y=button_y),
+            Button(stdscr=stdscr, label='Y', x=center(total_button_length) - total_button_length / 2 + xo_button_length, y=button_y),
+            Button(stdscr=stdscr, label="Randomize", x=center(total_button_length) - randomize_button_length, y=button_y, parameter="R")
+        ]
+        for button in buttons:
+            button.draw()
+
+        while True:
+            event = stdscr.getch()
+            if event == ord('q'):
+                end_game()
+            elif event != curses.KEY_MOUSE:
+                continue
+
+            mx, my = get_mouse_xy()
+
+
+            for button in buttons:
+                if button.in_bounds(mx, my):
+                    button.click()
+                    if str(button) != 'R':
+                        return str(button)
+                    else:
+                        return random.choice(players)
+
+    host = "0.0.0.0"
+    players = ['X', 'O']
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((host, port))
         s.listen()
         display_ip()
         conn, addr = s.accept()
+
         with conn:
-            display_connection(conn)
+            display_connection(stdscr, conn)
+            player = choose_character()
+
+            if player == players[0]:
+                opp = players[1]
+            else:
+                opp = players[0]
+
+            conn.send(str(opp).encode())
+            online_game(stdscr, conn, player)
 
 
+def join_game(stdscr: curses,window):
+    clear_draw_ui(stdscr)
+
+    string = "Enter the host's IP address: "
+    text_y = Banner.height + 2
+    while True:
+        while True:
+            clear_y(stdscr, text_y)
+            stdscr.addstr(text_y, center(len(string)), string)
+            stdscr.refresh()
+            host = get_input(stdscr, text_y + 1, center(len(string)))
+            if is_valid_ip(host):
+                break
+
+        port = 12345
+        string = f"Connecting to {host}..."
+        stdscr.addstr(text_y, center(len(string)), string)
+        stdscr.refresh()
+
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(5)  # Set a timeout for the connection attempt
+            try:
+                s.connect((host, port))
+            except TimeoutError:
+                string = f"Couldn't connect to {host}: Connection timed out."
+                stdscr.addstr(text_y, center(len(string)), string)
+                stdscr.refresh()
+                continue
+            except Exception as e:
+                string = f"An error occurred while connecting to {host}: {e}"
+                stdscr.addstr(text_y, center(len(string)), string)
+                stdscr.refresh()
+                continue
+
+            string = f"Connected! The host is choosing their character."
+            stdscr.addstr(text_y, center(len(string)), string)
+            stdscr.refresh()
+
+            player = s.recv(1024).decode()
+            string = f"You are player {player}. Click anywhere to continue."
+            stdscr.addstr(text_y, center(len(string)), string)
+            stdscr.refresh()
+            stdscr.getch()
+
+            online_game(stdscr, s, player)
+            break
 
 
-def join_game():
-    pass  # TODO
-
-
-def local_game():
+def local_game(stdscr: curses.window) -> None:
     """
     Conducts a local game of Tic Tac Toe between two players.
 
@@ -505,7 +705,7 @@ def local_game():
     Raises:
         KeyboardInterrupt: If the user quits the game by pressing 'q'.
     """
-    def display_winner(player, y) -> None:
+    def display_winner(player: str | chr, y: int) -> None:
         """
         Display a message indicating the winner of the game.
 
@@ -516,12 +716,12 @@ def local_game():
         Raises:
             KeyboardInterrupt: If the user quits the game by pressing any key.
         """
-        clear_y(y)
-        str = "Player {} wins! Click anywhere to continue...".format(player)
-        STDSCR.addstr(y, center(len(str)), str)
-        STDSCR.getch()
+        clear_y(stdscr, y)
+        string = "Player {} wins! Click anywhere to continue...".format(player)
+        stdscr.addstr(y, center(len(string)), string)
+        stdscr.getch()
 
-    def display_tie(y) -> None:
+    def display_tie(y: int) -> None:
         """
         Display a message indicating that the game ended in a tie.
 
@@ -531,21 +731,23 @@ def local_game():
         Raises:
             KeyboardInterrupt: If the user quits the game by pressing any key.
         """
-        clear_y(y)
-        str = "It's a tie! Click anywhere to continue..."
-        STDSCR.addstr(y, center(len(str)), str)
-        STDSCR.getch()
+        clear_y(stdscr, y)
+        string = "It's a tie! Click anywhere to continue..."
+        stdscr.addstr(y, center(len(string)), string)
+        stdscr.getch()
 
     players = ['X', 'O']
     turn = 0
     board = Board(y=Banner.height + 2)
 
-    STDSCR.clear()
-    footer()
-    Banner.draw()
+    clear_draw_ui(stdscr)
     board.draw_board()
     while True:
-        player_turn(players[turn], board)
+        clear_y(stdscr, Board.get_board_height() + board.y + 2)
+        string = "It's Player {}'s turn.".format(players[turn])
+        stdscr.addstr(Board.get_board_height() + board.y + 2, center(len(string)), string)
+        stdscr.refresh()
+        player_turn(stdscr, players[turn], board)
         board.draw_values()
         winner = board.get_winner()
 
@@ -561,7 +763,7 @@ def local_game():
         turn = (turn + 1) % 2
 
 
-def cpu_game():
+def cpu_game(stdscr: curses.window) -> None:
     """
     Conducts a game of Tic Tac Toe against the computer.
 
@@ -571,7 +773,7 @@ def cpu_game():
     Raises:
         KeyboardInterrupt: If the user quits the game by pressing 'q'.
     """
-    def display_winner(player, y) -> None:
+    def display_winner(player: str | chr, y: int) -> None:
         """
         Display a message indicating the winner of the game.
 
@@ -582,15 +784,15 @@ def cpu_game():
         Raises:
             KeyboardInterrupt: If the user quits the game by pressing any key.
         """
-        clear_y(y)
+        clear_y(stdscr, y)
         if player == "CPU":
-            str = "CPU wins! Click anywhere to continue..."
+            string = "CPU wins! Click anywhere to continue..."
         else:
-            str = "Player {} wins! Click anywhere to continue...".format(player)
-        STDSCR.addstr(y, center(len(str)), str)
-        STDSCR.getch()
+            string = "Player {} wins! Click anywhere to continue...".format(player)
+        stdscr.addstr(y, center(len(string)), string)
+        stdscr.getch()
 
-    def display_tie(y) -> None:
+    def display_tie(y: int) -> None:
         """
         Display a message indicating that the game ended in a tie.
 
@@ -600,10 +802,10 @@ def cpu_game():
         Raises:
             KeyboardInterrupt: If the user quits the game by pressing any key.
         """
-        clear_y(y)
-        str = "It's a tie! Click anywhere to continue..."
-        STDSCR.addstr(y, center(len(str)), str)
-        STDSCR.getch()
+        clear_y(stdscr, y)
+        string = "It's a tie! Click anywhere to continue..."
+        stdscr.addstr(y, center(len(string)), string)
+        stdscr.getch()
 
     def computer_turn(board: Board, player: str, opponent: str) -> None:
         """
@@ -615,38 +817,98 @@ def cpu_game():
             opponent (str): The symbol representing the human player.
         """
         y = Board.get_board_height() + board.y + 2
-        clear_y(y)
-        str = "CPU's turn."
-        STDSCR.addstr(y, center(len(str)), str)
-        STDSCR.refresh()
+        clear_y(stdscr, y)
+        string = "CPU's turn."
+        stdscr.addstr(y, center(len(string)), string)
+        stdscr.refresh()
 
-        # Simple strategy: Choose a random empty cell
-        empty_cells = [(row, col) for row in range(3) for col in range(3) if board.is_empty(row, col)]
-        if empty_cells:
-            row, col = empty_cells[randint(0, len(empty_cells) - 1)]
-            board.update_board(player, row, col)
+        # Introduce a slight delay to mimic CPU's processing time
         time.sleep(0.5)
 
-    player_symbol = 'X'
-    cpu_symbol = 'O'
+        # Try to win if possible
+        if try_to_win(board, player):
+            return
+
+        # Block opponent from winning
+        if try_to_block(board, opponent):
+            return
+
+        # If no winning or blocking moves available, choose a random empty cell
+        empty_cells = [(row, col) for row in range(3) for col in range(3) if board.is_empty(row, col)]
+        if empty_cells:
+            row, col = random.choice(empty_cells)
+            board.update_board(player, row, col)
+
+    def try_to_win(board: Board, player: str) -> bool:
+        """
+        Attempt to make a winning move for the given player.
+
+        Args:
+            board (Board): The game board.
+            player (str): The symbol representing the player.
+
+        Returns:
+            bool: True if a winning move was made, False otherwise.
+        """
+        # Check if the player can win in the next move and make that move
+        for row in range(3):
+            for col in range(3):
+                if board.is_empty(row, col):
+                    board.update_board(player, row, col)
+                    if board.get_winner() == player:
+                        return True
+                    else:
+                        # Reset the move if it doesn't result in a win
+                        board.clear_cell(row, col)
+        return False
+
+    def try_to_block(board: Board, opponent: str) -> bool:
+        """
+        Attempt to block the opponent from winning.
+
+        Args:
+            board (Board): The game board.
+            opponent (str): The symbol representing the opponent.
+
+        Returns:
+            bool: True if a blocking move was made, False otherwise.
+        """
+        # Check if the opponent can win in the next move and block that move
+        for row in range(3):
+            for col in range(3):
+                if board.is_empty(row, col):
+                    board.update_board(opponent, row, col)
+                    if board.get_winner() == opponent:
+                        # If the opponent can win, block their move
+                        board.clear_cell(row, col)
+                        board.update_board(opponent, row, col)
+                        return True
+                    else:
+                        # Reset the move if it doesn't result in a win for the opponent
+                        board.clear_cell(row, col)
+        return False
+
+    player = 'X'
+    cpu = 'O'
     turn = 0
     board = Board(y=Banner.height + 2)
 
-    STDSCR.clear()
-    footer()
-    Banner.draw()
+    clear_draw_ui(stdscr)
     board.draw_board()
 
     # Determine who goes first
-    first_turn = randint(0, 1)
+    first_turn = random.randint(0, 1)
     if first_turn == 1:
         turn += 1
 
     while True:
         if turn % 2 == 0:
-            player_turn(player_symbol, board)
+            string = "It's Player {}'s turn.".format(player)
+            stdscr.addstr(Board.get_board_height() + board.y + 2, center(len(string)), string)
+            stdscr.refresh()
+            player_turn(player, board)
         else:
-            computer_turn(board, cpu_symbol, player_symbol)
+            computer_turn(board, cpu, player)
 
         board.draw_values()
         winner = board.get_winner()
@@ -663,7 +925,7 @@ def cpu_game():
         turn += 1
 
 
-def play_again() -> bool:
+def play_again(stdscr: curses.window) -> bool:
     """
     Display a prompt asking the player if they want to play again.
 
@@ -673,8 +935,8 @@ def play_again() -> bool:
     Raises:
         KeyboardInterrupt: If the user quits the game by pressing 'q'.
     """
-    STDSCR.clear()
-    footer()
+    stdscr.clear()
+    footer(stdscr)
     lines = ["╔──────────────────────────────╗",
              "│┌─┐┬  ┌─┐┬ ┬  ┌─┐┌─┐┌─┐┬┌┐┌┌─┐│",
              "│├─┘│  ├─┤└┬┘  ├─┤│ ┬├─┤││││ ┌┘│",
@@ -684,16 +946,16 @@ def play_again() -> bool:
     width = len(lines[0])
     height = len(lines)
     for i, line in enumerate(lines):
-        STDSCR.addstr(i, center(width), line)
+        stdscr.addstr(i, center(width), line)
 
-    buttons = [Button("yes", "Yes", center(7) - 5, height + 2),
-               Button("no", "No ", center(7) + 5, height + 2)]
+    buttons = [Button(stdscr=stdscr, parameter="yes", label="Yes", x=center(7) - 5, y=height + 2),
+               Button(stdscr=stdscr, parameter="no", label="No ", x=center(7) + 5, y=height + 2)]
 
     for button in buttons:
         button.draw()
 
     while True:
-        event = STDSCR.getch()
+        event = stdscr.getch()
         if event == ord('q'):
             end_game()
         elif event != curses.KEY_MOUSE:
@@ -709,7 +971,7 @@ def play_again() -> bool:
                     return False
 
 
-def choose_game_mode() -> str:
+def choose_game_mode(stdscr: curses.window) -> str:
     """
     Display the game mode selection screen and wait for the player to choose a mode.
 
@@ -722,26 +984,26 @@ def choose_game_mode() -> str:
     buttons = []
 
     host_str = "Host "
-    host_button = Button("host", host_str, center(len(host_str) + 4), 3 * len(buttons) + Banner.height + 1)
+    host_button = Button(stdscr=stdscr, parameter="host", label=host_str, x=center(len(host_str) + 4), y=3 * len(buttons) + Banner.height + 1)
     buttons.append(host_button)
 
     join_str = "Join "
-    join_button = Button("join", join_str, center(len(join_str) + 4), 3 * len(buttons) + Banner.height + 1)
+    join_button = Button(stdscr=stdscr, parameter="join", label=join_str, x=center(len(join_str) + 4), y=3 * len(buttons) + Banner.height + 1)
     buttons.append(join_button)
 
     local_str = "Local"
-    local_button = Button("local", local_str, center(len(local_str) + 4), 3 * len(buttons) + Banner.height + 1)
+    local_button = Button(stdscr=stdscr, parameter="local", label=local_str, x=center(len(local_str) + 4), y=3 * len(buttons) + Banner.height + 1)
     buttons.append(local_button)
 
     cpu_str = "CPU  "
-    cpu_button = Button("cpu", cpu_str, center(len(cpu_str) + 4), 3 * len(buttons) + Banner.height + 1)
+    cpu_button = Button(stdscr=stdscr, parameter="cpu", label=cpu_str, x=center(len(cpu_str) + 4), y=3 * len(buttons) + Banner.height + 1)
     buttons.append(cpu_button)
 
     for button in buttons:
         button.draw()
 
     while True:
-        event = STDSCR.getch()
+        event = stdscr.getch()
         if event == ord('q'):
             end_game()
         elif event != curses.KEY_MOUSE:
@@ -756,7 +1018,7 @@ def choose_game_mode() -> str:
                 return str(button)
 
 
-def end_game():
+def end_game() -> None:
     """
     End the game and print a farewell message.
 
@@ -767,7 +1029,7 @@ def end_game():
     sys.exit(0)
 
 
-def get_mouse_xy():
+def get_mouse_xy() -> tuple:
     """
     Get the x and y coordinates of the mouse cursor.
 
@@ -781,7 +1043,7 @@ def get_mouse_xy():
     return mx, my
 
 
-def main(stdscr):
+def main(stdscr: curses.window) -> None:
     """
     The main function responsible for running the Tic Tac Toe game.
 
@@ -791,37 +1053,32 @@ def main(stdscr):
     Raises:
         KeyboardInterrupt: If the user quits the game by pressing 'q'.
     """
-    global MAX_Y, MAX_X  # Height and width get global visibility
-    global STDSCR
-    MAX_Y, MAX_X = stdscr.getmaxyx()
-    STDSCR = stdscr
-
     # Set up curses
     curses.mousemask(curses.REPORT_MOUSE_POSITION)  # Enable mouse events
     curses.curs_set(0)  # Hide cursor
 
-    Banner.draw()
-    footer()
-    STDSCR.refresh()
+    Banner.draw(stdscr)
+    footer(stdscr)
+    stdscr.refresh()
 
     try:
         while True:
-            game_mode = choose_game_mode()
+            game_mode = choose_game_mode(stdscr)
 
             if game_mode == "host":
-                host_game()
+                host_game(stdscr)
             elif game_mode == "join":
-                join_game()
+                join_game(stdscr)
             elif game_mode == "local":
-                local_game()
+                local_game(stdscr)
             else:
-                cpu_game()
+                cpu_game(stdscr)
 
-            if not play_again():
+            if not play_again(stdscr):
                 end_game()
                 break
             else:
-                STDSCR.clear()
+                stdscr.clear()
 
     except KeyboardInterrupt:
         end_game()
