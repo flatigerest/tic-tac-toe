@@ -13,7 +13,7 @@ import src.utils as utils
 
 def play_game(stdscr: curses.window) -> None:
     # Set up curses
-    curses.mousemask(curses.REPORT_MOUSE_POSITION)  # Enable mouse events
+    curses.mousemask(curses.BUTTON1_CLICKED)  # Enable mouse events
     print('\033[?1003h')
     curses.curs_set(0)  # Hide cursor
 

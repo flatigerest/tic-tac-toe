@@ -24,8 +24,8 @@ def clear_y(stdscr: curses.window, y: int) -> None:
     Args:
         y (int): The y-coordinate of the line to clear.
     """
-    _, max_x = stdscr.getmaxyx()
-    stdscr.addstr(y, 0, " " * (max_x - 1))
+    stdscr.move(y, 0)
+    stdscr.clrtoeol()
 
 
 def get_public_ip() -> Union[str, None]:
