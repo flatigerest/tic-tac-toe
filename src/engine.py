@@ -5,6 +5,7 @@ import socket
 from json import loads, dumps
 from random import choice, randint
 import sys
+from platform import system
 
 from src.board import Board
 from src.button import Button
@@ -12,6 +13,11 @@ import src.utils as utils
 
 
 def play_game(stdscr: curses.window) -> None:
+    # Check if OS is mac bc curses is gay
+    is_mac = False
+    if system() == "Darwin":
+        is_mac = True
+
     # Set up curses
     curses.mousemask(curses.BUTTON1_CLICKED)  # Enable mouse events
     print('\033[?1003h')
@@ -23,7 +29,7 @@ def play_game(stdscr: curses.window) -> None:
 
     try:
         while True:
-            game_mode = choose_game_mode(stdscr)
+            game_mode = choose_game_mode(stdscr, is_mac)
 
             if game_mode == "host":
                 host_game(stdscr)
@@ -599,7 +605,7 @@ def play_again(stdscr: curses.window) -> bool:
                     return False
 
 
-def choose_game_mode(stdscr: curses.window) -> str:
+def choose_game_mode(stdscr: curses.window, is_mac: bool = False) -> str:
     """
     Display the game mode selection screen and wait for the player to choose a mode.
 
@@ -634,16 +640,20 @@ def choose_game_mode(stdscr: curses.window) -> str:
         event = stdscr.getch()
         if event == ord('q'):
             end_game()
-        elif event != curses.KEY_MOUSE:
-            continue
+        if not is_mac:
+            if event != curses.KEY_MOUSE:
+                continue
 
-        mx, my = utils.get_mouse_xy()
+            mx, my = utils.get_mouse_xy()
 
 
-        for button in buttons:
-            if button.in_bounds(mx, my):
-                button.click()
-                return str(button)
+            for button in buttons:
+                if button.in_bounds(mx, my):
+                    button.click()
+                    return str(button)
+
+        else:
+            pass # TODO
 
 
 def end_game() -> None:
