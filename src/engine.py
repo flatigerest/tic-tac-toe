@@ -22,6 +22,7 @@ def play_game(stdscr: curses.window) -> None:
     curses.mousemask(curses.BUTTON1_CLICKED)  # Enable mouse events
     print('\033[?1003h')
     curses.curs_set(0)  # Hide cursor
+    stdscr.keypad(1)
 
     Banner.draw(stdscr)
     footer(stdscr)
@@ -32,13 +33,13 @@ def play_game(stdscr: curses.window) -> None:
             game_mode = choose_game_mode(stdscr, is_mac)
 
             if game_mode == "host":
-                host_game(stdscr)
+                host_game(stdscr, is_mac)
             elif game_mode == "join":
-                join_game(stdscr)
+                join_game(stdscr, is_mac)
             elif game_mode == "local":
-                local_game(stdscr)
+                local_game(stdscr, is_mac)
             else:
-                cpu_game(stdscr)
+                cpu_game(stdscr, is_mac)
 
             if not play_again(stdscr):
                 end_game()
@@ -197,7 +198,7 @@ def online_game(stdscr: curses.window, conn: socket.socket, player: str) -> None
         turn = (turn + 1) % 2
 
 
-def host_game(stdscr: curses.window, port: int=12345):
+def host_game(stdscr: curses.window, is_mac, port: int=12345):
     def display_ip():
         clear_draw_ui(stdscr)
 
@@ -281,7 +282,7 @@ def host_game(stdscr: curses.window, port: int=12345):
             online_game(stdscr, conn, player)
 
 
-def join_game(stdscr: curses,window):
+def join_game(stdscr: curses.window, is_mac):
     clear_draw_ui(stdscr)
 
     string = "Enter the host's IP address: "
@@ -329,7 +330,7 @@ def join_game(stdscr: curses,window):
             break
 
 
-def local_game(stdscr: curses.window) -> None:
+def local_game(stdscr: curses.window, is_mac) -> None:
     """
     Conducts a local game of Tic Tac Toe between two players.
 
@@ -397,7 +398,7 @@ def local_game(stdscr: curses.window) -> None:
         turn = (turn + 1) % 2
 
 
-def cpu_game(stdscr: curses.window) -> None:
+def cpu_game(stdscr: curses.window, is_mac) -> None:
     """
     Conducts a game of Tic Tac Toe against the computer.
 
@@ -407,7 +408,7 @@ def cpu_game(stdscr: curses.window) -> None:
     Raises:
         KeyboardInterrupt: If the user quits the game by pressing 'q'.
     """
-    def display_winner(player: str | chr, y: int) -> None:
+    def display_winner(player: Union[str, chr], y: int) -> None:
         """
         Display a message indicating the winner of the game.
 
@@ -605,7 +606,7 @@ def play_again(stdscr: curses.window) -> bool:
                     return False
 
 
-def choose_game_mode(stdscr: curses.window, is_mac: bool = False) -> str:
+def choose_game_mode(stdscr: curses.window, is_mac: bool=False) -> str:
     """
     Display the game mode selection screen and wait for the player to choose a mode.
 
@@ -633,19 +634,25 @@ def choose_game_mode(stdscr: curses.window, is_mac: bool = False) -> str:
     cpu_button = Button(stdscr=stdscr, parameter="cpu", label=cpu_str, x=utils.center(stdscr, len(cpu_str) + 4), y=3 * len(buttons) + Banner.height + 1)
     buttons.append(cpu_button)
 
-    for button in buttons:
-        button.draw()
+    selected_button = 0
+    if is_mac:
+        buttons[selected_button].select()
 
     while True:
+        # Draw buttons
+        clear_draw_ui(stdscr)
+        for button in buttons:
+            button.draw()
+
         event = stdscr.getch()
         if event == ord('q'):
             end_game()
+
         if not is_mac:
             if event != curses.KEY_MOUSE:
                 continue
 
             mx, my = utils.get_mouse_xy()
-
 
             for button in buttons:
                 if button.in_bounds(mx, my):
@@ -653,7 +660,27 @@ def choose_game_mode(stdscr: curses.window, is_mac: bool = False) -> str:
                     return str(button)
 
         else:
-            pass # TODO
+            # Select
+            if event == curses.KEY_UP:
+                buttons[selected_button].deselect()
+                selected_button -= 1
+                if selected_button < 0:
+                    selected_button = len(buttons) - 1
+                buttons[selected_button].select()
+                print("reached")
+
+            # Deselect
+            elif event == curses.KEY_DOWN:
+                buttons[selected_button].deselect()
+                selected_button += 1
+                if selected_button > len(buttons) - 1:
+                    selected_button = 0
+                buttons[selected_button].select()
+
+            # Click
+            elif event == ord('\n'):
+                buttons[selected_button].click()
+                return str(buttons[selected_button])
 
 
 def end_game() -> None:

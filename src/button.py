@@ -25,12 +25,19 @@ class Button:
             "x": [num for num in range(x, x + len(self.label) + 4)],
             "y": [num for num in range(y, y + 3)]
         }
+        self.is_selected = False
 
     def __str__(self) -> str:
         """
         Return the parameter associated with the button as a string.
         """
         return self.parameter
+
+    def select(self):
+        self.is_selected = True
+
+    def deselect(self):
+        self.is_selected = False
 
     def draw(self, hl: bool=False):
         """
@@ -48,16 +55,12 @@ class Button:
         br = '┛'
         width: int = len(self.label) + 4  # Calculate the width of the button
 
-        # Draw top border
         self.stdscr.addstr(self.y, self.x, tl + h * (width - 2) + tr)
-
-        # Draw text with side borders
-        if hl:
-            self.stdscr.addstr(self.y + 1, self.x, f"{v} {self.label} {v}", A_REVERSE)
+        if hl or self.is_selected:
+            self.stdscr.addstr(self.y + 2, self.x, bl + h * (width - 2) + br, A_REVERSE)
         else:
             self.stdscr.addstr(self.y + 1, self.x, f"{v} {self.label} {v}")
 
-        # Draw bottom border
         self.stdscr.addstr(self.y + 2, self.x, bl + h * (width - 2) + br)
         self.stdscr.refresh()
 
